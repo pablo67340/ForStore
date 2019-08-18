@@ -6,6 +6,7 @@
 package website.bryces.forstore.main;
 
 import java.io.File;
+import java.io.IOException;
 
 import java.util.Arrays;
 import java.util.Timer;
@@ -25,6 +26,8 @@ public class Main {
 
     private Boolean watchDog = false;
     private Boolean isLoading = false;
+    private String destination = "";
+    private Process server;
     private final String[] args;
     private long oldSize;
     private File target = null;
@@ -40,6 +43,12 @@ public class Main {
             if (watchDog) {
                 System.out.println("Injection launched with watchdog enabled. Builds will automatically recompile 1 second after a file size change is detected.");
             }
+        }
+
+        if (Arrays.stream(args).anyMatch("-d"::equals)) {
+            int dataValue = Arrays.asList(args).indexOf("-d");
+            dataValue += 1;
+            this.destination = args[dataValue];
         }
 
         String path = this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath().replace("ForStore.jar", "");
@@ -91,54 +100,52 @@ public class Main {
         }
 
         // Complete the ZIP file
-        runWatcher();
+        if (Arrays.asList(args).contains("-d")) {
+            copyArtifact(this.target);
+        } else {
+            runWatcher();
+        }
 
     }
 
-    public void runAnim() throws InterruptedException {
+    public void runAnim() {
+
         isLoading = true;
         int index = 0;
-        Timer timer = new Timer();
-        while (isLoading) {
-            switch (index) {
-                case 0:
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            System.out.print("\r|");
-                        }
-                    }, 250);
-                    break;
-                case 1:
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            System.out.print("\r/");
-                        }
-                    }, 250);
-                    break;
-                case 2:
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            System.out.print("\r-");
-                        }
-                    }, 250);
-                    break;
-                case 3:
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            System.out.print("\r\\");
-                        }
-                    }, 250);
-                    index = -1;
-                    break;
-                default:
-                    break;
+        try {
+            while (isLoading) {
+                switch (index) {
+                    case 0:
+                        System.out.print("\r|");
+                        Thread.sleep(100);
+                        break;
+                    case 1:
+
+                        System.out.print("\r/");
+                        Thread.sleep(100);
+                        break;
+                    case 2:
+
+                        System.out.print("\r-");
+                        Thread.sleep(100);
+
+                        break;
+                    case 3:
+
+                        System.out.print("\r\\");
+                        Thread.sleep(100);
+
+                        index = -1;
+                        break;
+                    default:
+                        break;
+                }
+                index += 1;
             }
-            index += 1;
+        } catch (InterruptedException ex) {
+            System.out.println("Error playing animation: " + ex.getMessage());
         }
+
     }
 
     public void stopAnim() {
@@ -147,13 +154,10 @@ public class Main {
 
     public void runWatcher() {
         System.out.println("Watchdog Started...");
-
         Thread t1 = new Thread(() -> {
-            try {
-                runAnim();
-            } catch (InterruptedException ex) {
-                System.out.println("Animation Interrupted: " + ex.getMessage());
-            }
+
+            runAnim();
+
         });
         t1.start();
 
@@ -173,10 +177,54 @@ public class Main {
                         Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     timer.cancel();
+                    getServer().destroy();
                     launch();
                 }
                 refreshedValues = null;
             }
         }, 0, 1000);
+    }
+
+    public void launchServer(String path) {
+        System.out.println("Starting Server located in: "+path);
+        Thread t1 = new Thread(() -> {
+            ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/C", "java -jar " + path + "\\minecraft.jar !Xmx2G !Xms2G", "start");
+            //builder.redirectErrorStream(true);
+            File directory = new File(path);
+            builder.directory(directory);
+            try {
+                Process process = builder.start();
+                setServer(process);
+            } catch (IOException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        });
+        t1.start();
+        System.out.println("java -jar " + path + "\\minecraft.jar !Xmx2G !Xms2G");
+        runWatcher();
+    }
+
+    public void copyArtifact(File input) {
+        System.out.println("Copying artifact...");
+        File dest = new File(this.destination+"/"+args[0]);
+        input.renameTo(dest);
+        System.out.println("Move Complete.");
+
+        if (Arrays.asList(args).contains("-s") && Arrays.asList(args).contains("-d")) {
+            int dataValue = Arrays.asList(args).indexOf("-d");
+            dataValue += 1;
+            launchServer(args[dataValue]);
+        } else {
+            runWatcher();
+        }
+
+    }
+
+    public void setServer(Process input) {
+        this.server = input;
+    }
+
+    public Process getServer() {
+        return this.server;
     }
 }
