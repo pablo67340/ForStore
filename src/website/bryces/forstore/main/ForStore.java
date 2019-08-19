@@ -16,13 +16,13 @@ public class ForStore {
      */
     public static void main(String[] args) {
         Main main = new Main(args);
-
-        String dest = "";
         if (args.length == 0) {
             System.out.println("Proper Usage: java -jar ForStore.jar {destination.jar}");
             System.out.println("=== Optional Arguments ===");
             System.out.println("-w    Watchdog Mode");
-        } 
+            System.out.println("-d {path}   Specify custom artifact destination");
+            System.out.println("-s    Server Control Mode");
+        }
         main.launch();
 
     }
