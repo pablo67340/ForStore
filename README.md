@@ -14,11 +14,11 @@ ForStore is designed to help streamline your development process within a Minecr
 
 Your folder structure should look like:
 
--Store
---ForStore.jar
---Dependency1.jar
---Dependency2.jar
---TargetPlugin.jar
+-Store  
+--ForStore.jar  
+--Dependency1.jar  
+--Dependency2.jar  
+--TargetPlugin.jar  
 
 5. Open CMD and navigate into your Store folder. (cd desktop/store)
 
