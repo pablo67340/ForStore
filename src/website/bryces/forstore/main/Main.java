@@ -2,6 +2,7 @@ package website.bryces.forstore.main;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.ProcessBuilder.Redirect;
 
 import java.util.Arrays;
 import java.util.Timer;
@@ -22,15 +23,33 @@ public class Main {
 
     private Boolean isLoading = false, watchDog = false;
     private String destination = "";
-    private final String[] args;
+    private String[] args = new String[7];
     private long oldSize;
     private File target = null;
+    private String workingDir = "";
 
     public Main(String[] input) {
         args = input;
+        //args[0] = "GUIShop.jar";
+        //args[1] = "-w";
+        //args[2] = "-d";
+        //args[3] = "C:/Users/Bryce/Desktop/1.14.4";
+        //args[4] = "-s";
+        //args[5] = "-wd";
+        //args[6] = "C:/Users/Bryce/Desktop/GStore/";
     }
 
     public void launch() {
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                //do your stuff
+                if (serverProcess != null) {
+                    serverProcess.destroyForcibly();
+                }
+            }
+        });
 
         if (watchDog != true) {
             watchDog = Arrays.stream(args).anyMatch("-w"::equals);
@@ -45,11 +64,19 @@ public class Main {
             this.destination = args[dataValue];
         }
 
-        String path = this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath().replace("ForStore.jar", "");
-        System.out.println("Selected File: " + path + args[0]);
-        File folder = new File(path);
-        File tmp = new File(path + "/tmp");
-        this.target = new File(path + args[0]);
+        if (Arrays.stream(args).anyMatch("-wd"::equals)) {
+            int dataValue = Arrays.asList(args).indexOf("-wd");
+            dataValue += 1;
+            this.workingDir = args[dataValue]+"/";
+        } else {
+            this.workingDir = this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath().replace("ForStore.jar", "");
+        }
+
+        // TODO: change to take in param
+        System.out.println("Selected File: " + workingDir + args[0]);
+        File folder = new File(workingDir);
+        File tmp = new File(workingDir + "/tmp");
+        this.target = new File(workingDir + args[0]);
 
         if (!this.target.canRead()) {
             System.out.println("Target file was null!");
@@ -78,7 +105,7 @@ public class Main {
 
                     if (file.isFile() && ext.equalsIgnoreCase("jar") && !file.getName().equalsIgnoreCase(args[0]) && !file.getName().equalsIgnoreCase("ForStore.jar")) {
                         System.out.println("Discovered File: " + file.getName());
-                        ZipFile zipFile = new ZipFile(path + "/" + file.getName());
+                        ZipFile zipFile = new ZipFile(workingDir + "/" + file.getName());
                         zipFile.extractAll(tmp.getPath());
                     }
                 }
@@ -155,10 +182,10 @@ public class Main {
 
     public void runWatcher() {
         System.out.println("Watchdog process Started...");
-        Thread t1 = new Thread(() -> {
-            runAnim();
-        });
-        t1.start();
+        //Thread t1 = new Thread(() -> {
+        //    runAnim();
+        //});
+        //t1.start();
 
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
@@ -175,13 +202,10 @@ public class Main {
                     } catch (InterruptedException ex) {
                         Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/c", "taskkill /f /t /fi \"WINDOWTITLE eq MServer\"");
-                    try {
-                        Process p = builder.start();
-                        System.out.println("Server Halted.");
-                    } catch (IOException ex) {
-                        System.out.println("Error halting server: " + ex.getMessage());
-                    }
+                    Process result = serverProcess.destroyForcibly();
+
+                    System.out.println("Server Halted.");
+
                     timer.cancel();
                     launch();
                 }
@@ -190,21 +214,25 @@ public class Main {
         }, 0, 1000);
     }
 
+    Process serverProcess;
+
     public void launchServer(String path) {
         System.out.println("Starting Server located in: " + path);
         Thread t1 = new Thread(() -> {
             System.out.println("cd " + path);
-            ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/c", "start " + path + "\\run.bat");
+            ProcessBuilder builder2 = new ProcessBuilder("java", "-jar", "minecraft.jar", "!Xms2G !Xmx2G nogui");
             File directory = new File(path);
-            builder.directory(directory);
+            builder2.directory(directory);
+            builder2.redirectOutput(Redirect.INHERIT);
+            builder2.redirectError(Redirect.INHERIT);
             try {
-                Process process = builder.start();
+                serverProcess = builder2.start();
             } catch (IOException ex) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
         t1.start();
-        System.out.println("java -jar " + path + "\\minecraft.jar !Xmx2G !Xms2G");
+        System.out.println("java -jar " + path + "/minecraft.jar !Xmx2G !Xms2G");
         runWatcher();
     }
 
